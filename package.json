@@ -1,0 +1,17 @@
+{
+  "name": "edge-auto-click-extension",
+  "version": "1.0.0",
+  "description": "一个自动点击网页元素的Edge浏览器插件",
+  "main": "src/background.js",
+  "scripts": {
+    "build": "echo 'Building the extension...'",
+    "test": "echo 'Running tests...'"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "manifest_version": 3,
+  "author": "Your Name",
+  "license": "MIT"
+}

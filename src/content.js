@@ -24,65 +24,64 @@ async function isAllowedWebsite() {
 // 检查并执行自动点击
 async function checkAndAutoClick() {
     if (await isAllowedWebsite()) {
+        // 确保先断开之前的监听
+        observer.disconnect();
+        // 重新开始监听
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true
+        });
         autoClickElement();
     } else {
         console.log('当前网站未在允许列表中');
     }
 }
 function waitForElement(timeout = 5000) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const startTime = Date.now();
-        let attempts = 0; // 添加计数器
-        const maxAttempts = 2; // 最大尝试次数
         
-        const checkElement = () => {
-            attempts++; // 增加计数
-            console.log(`第 ${attempts} 次尝试查找按钮`);
+        function check() {
+            const selectors = [
+                'button.swal2-confirm.swal2-styled',
+                '.swal2-confirm',
+                'button[class*="swal2-confirm"]'
+            ];
             
-            const elements = document.querySelectorAll('button.swal2-confirm.swal2-styled');
-            const targetButton = Array.from(elements).find(button => {
-                console.log('检查按钮:', button.outerHTML);
-                return (
-                    button.classList.contains('swal2-confirm') && 
-                    button.classList.contains('swal2-styled') &&
-                    button.getAttribute('type') === 'button' &&
-                    (button.innerText === 'OK' ||
-                     button.innerText === '确定' || 
-                     button.innerText === '确认')
-                );
-            });
-
-            if (targetButton) {
-                console.log('找到目标确认按钮:', targetButton.outerHTML);
-                resolve(targetButton);
-            } else if (attempts >= maxAttempts) {
-                console.error(`已尝试 ${attempts} 次，停止查找`);
-                observer.disconnect(); // 停止观察
-                reject(new Error('达到最大尝试次数'));
-            } else if (Date.now() - startTime >= timeout) {
-                console.error('等待超时，未找到确认按钮');
-                observer.disconnect(); // 停止观察
-                reject(new Error('元素查找超时'));
-            } else {
-                setTimeout(checkElement, 500);
+            let element = null;
+            for (const selector of selectors) {
+                element = document.querySelector(selector);
+                if (element) break;
             }
-        };
 
-        checkElement();
+            if (element) {
+                console.log('找到目标元素:', element);
+                resolve(element);
+            } else if (Date.now() - startTime < timeout) {
+                console.log('未找到元素，继续查找...');
+                requestAnimationFrame(check);
+            } else {
+                console.log('查找超时，未找到目标元素');
+                resolve(null);
+            }
+        }
+        
+        check();
     });
 }
 
-// 点击元素的函数
+// 点击元素的函数// 修改 autoClickElement 函数调用 waitForElement
 async function autoClickElement() {
-    try {
-        const element = await waitForElement();
+    const element = await waitForElement();
+    if (element) {
         element.click();
-        console.log('元素点击成功');
+        console.log('已执行点击操作');
+        // 停止监听
         observer.disconnect();
-    } catch (error) {
-        console.error('点击失败:', error);
+        console.log('已停止监听DOM变化');
     }
 }
+
 
 // 初始化时检查并执行
 checkAndAutoClick();

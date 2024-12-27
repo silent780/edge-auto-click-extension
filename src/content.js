@@ -1,9 +1,20 @@
 console.log('内容脚本已加载');
-
+// 优化观察器配置
+const observerConfig = {
+    childList: true,
+    subtree: true,
+    attributes: false, // 只关注DOM节点变化
+    characterData: false
+};
 // 声明全局 observer
 const observer = new MutationObserver((mutations) => {
     autoClickElement();
 });
+
+// 添加标志位
+let hasClicked = false;
+// 添加状态跟踪
+let isSearching = false;
 // 检查当前网站是否在允许列表中
 async function isAllowedWebsite() {
     const currentHost = window.location.hostname;
@@ -23,10 +34,10 @@ async function isAllowedWebsite() {
 
 // 检查并执行自动点击
 async function checkAndAutoClick() {
+    if (hasClicked || isSearching) return;
+    
     if (await isAllowedWebsite()) {
-        // 确保先断开之前的监听
         observer.disconnect();
-        // 重新开始监听
         observer.observe(document.body, {
             childList: true,
             subtree: true,
@@ -37,11 +48,26 @@ async function checkAndAutoClick() {
         console.log('当前网站未在允许列表中');
     }
 }
-function waitForElement(timeout = 5000) {
+function waitForElement(timeout = 1000) {
     return new Promise((resolve) => {
+        if (isSearching) {
+            resolve(null);
+            return;
+        }
+        
+        isSearching = true;
         const startTime = Date.now();
+        let lastCheck = 0;
+        const THROTTLE_DELAY = 100; // 限制查询频率
         
         function check() {
+            const now = Date.now();
+            if (now - lastCheck < THROTTLE_DELAY) {
+                requestAnimationFrame(check);
+                return;
+            }
+            lastCheck = now;
+            
             const selectors = [
                 'button.swal2-confirm.swal2-styled',
                 '.swal2-confirm',
@@ -55,13 +81,12 @@ function waitForElement(timeout = 5000) {
             }
 
             if (element) {
-                console.log('找到目标元素:', element);
+                isSearching = false;
                 resolve(element);
-            } else if (Date.now() - startTime < timeout) {
-                console.log('未找到元素，继续查找...');
+            } else if (now - startTime < timeout) {
                 requestAnimationFrame(check);
             } else {
-                console.log('查找超时，未找到目标元素');
+                isSearching = false;
                 resolve(null);
             }
         }
@@ -70,15 +95,22 @@ function waitForElement(timeout = 5000) {
     });
 }
 
+
 // 点击元素的函数// 修改 autoClickElement 函数调用 waitForElement
 async function autoClickElement() {
+    if (hasClicked) {
+        return; // 如果已经点击过，直接返回
+    }
+    
     const element = await waitForElement();
     if (element) {
-        element.click();
-        console.log('已执行点击操作');
-        // 停止监听
-        observer.disconnect();
-        console.log('已停止监听DOM变化');
+        hasClicked = true; // 设置标志位
+        try {
+            element.click();
+            observer.disconnect();
+        } catch (error) {
+            console.error('点击失败:', error);
+        }
     }
 }
 
